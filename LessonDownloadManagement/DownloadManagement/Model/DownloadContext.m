@@ -55,6 +55,9 @@
     request.predicate = predicate;
     NSManagedObjectContext *context = [DownloadContext downloadContext];
     NSArray *array = [context executeFetchRequest:request error:nil];
+    if (array.count == 0) {
+        return nil;
+    }
     return [array firstObject];
 }
 
@@ -65,6 +68,9 @@
     request.predicate = predicate;
     NSManagedObjectContext *context = [DownloadContext downloadContext];
     NSArray *array = [context executeFetchRequest:request error:nil];
+    if (array.count == 0) {
+        return nil;
+    }
     return [array firstObject];
 }
 

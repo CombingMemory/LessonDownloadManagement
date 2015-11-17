@@ -15,8 +15,6 @@
 @property (copy, nonatomic) DownloadComplted downloadComplted;
 @property (strong, nonatomic) NSURLSessionDownloadTask *task;//暂停下载，和继续下载
 @property (strong, nonatomic) NSURLSession *session;//根据session生成一个task
-@property (strong, nonatomic) NSData *data;//保存断点下载的数据
-@property (strong, nonatomic) NSString *isFinish;//下载完成后
 
 @end
 
@@ -26,14 +24,17 @@
     if ([super init]) {
         _url = url;
         NSURLSessionConfiguration *cfg = [NSURLSessionConfiguration defaultSessionConfiguration];
-        self.session = [NSURLSession sessionWithConfiguration:cfg delegate:self delegateQueue:[NSOperationQueue mainQueue]];
-        self.task = [self.session downloadTaskWithURL:[NSURL URLWithString:url]];
+        self.session = [NSURLSession sessionWithConfiguration:cfg delegate:self delegateQueue:[NSOperationQueue currentQueue]];
         //在数据库中判断是否已经下载过了，如果已经下载过了，执行断点下载
         if ([self isDownloadingWithURL:url]) {
             [self.task cancel];
             NSData *data = [self getDataFromDatabaseWithURL:url];
             self.task = [self.session downloadTaskWithResumeData:data];
+        }else{
+            self.task = [self.session downloadTaskWithURL:[NSURL URLWithString:url]];
         }
+        //给一个默认值
+        _state = DownloadSuspend;
     }
     return self;
 }
@@ -46,6 +47,9 @@
     NSFileManager *fm = [NSFileManager defaultManager];
     //把下载好的文件转移走
     [fm moveItemAtPath:location.path toPath:savePath error:nil];
+    
+    _state = DownloadFinished;
+    
     self.downloadComplted(self.url);//让下载管理类不再持有它
     if (self.finish) {
         self.finish(savePath,self.url);
@@ -73,8 +77,24 @@
 
 //开始
 - (void)resume{
-    
-    [self.task resume];
+    //因为有时候暂停的时间长的时候，task会变成一个完成的状态。这个时候需要我们重新开始下载
+    if (self.task.state == NSURLSessionTaskStateCompleted && [DownloadContext findFinishWithURL:_url] == nil) {
+        self.task = nil;
+        NSData *data = [self getDataFromDatabaseWithURL:_url];
+        self.task = [self.session downloadTaskWithResumeData:data];
+    }
+    if (self.state == DownloadSuspend) {
+        [self.task resume];
+    }
+    _state = DownloadResume;
+}
+
+//暂停
+- (void)suspend{
+    if (self.state == DownloadResume) {
+        [self.task suspend];
+    }
+    _state = DownloadSuspend;
 }
 
 //在根据url在数据库中取出data
@@ -86,11 +106,6 @@
     dataString = [dataString stringByReplacingOccurrencesOfString:downloading.fileSize withString:fileSize];
     
     return [dataString dataUsingEncoding:NSUTF8StringEncoding];
-}
-
-//暂停
-- (void)suspend{
-    [self.task suspend];
 }
 
 //根据url确定一个对象的dataPath是否已经存储过了
@@ -114,18 +129,11 @@
     [vc.task cancelByProducingResumeData:^(NSData *resumeData) {
         //解析resumeData并且归档
         [vc parsingResumeData:resumeData];
-        vc.data = resumeData;
         vc.task = nil;
         //保存完信息后继续开始下载
-        [self resumeDataDownload];
+        vc.task = [self.session downloadTaskWithResumeData:resumeData];
+        [vc.task resume];
     }];
-}
-
-//保存完信息后继续开始下载
-- (void)resumeDataDownload{
-    self.task = [self.session downloadTaskWithResumeData:self.data];
-    [self.task resume];
-    self.data = nil;
 }
 
 //解析resumeData数据，得到下载的地址大小等数据
@@ -146,13 +154,8 @@
         tmpPath = [tmp stringByAppendingPathComponent:tmpPath];
     }
     
-    
     //添加一条下载中的信息
     [DownloadContext addDownloadingWithURL:self.url tmpPath:tmpPath dataString:dataString fileSize:fileSize];
-}
-
-- (NSURLSessionTaskState)state{
-    return self.task.state;
 }
 
 - (void)downloadComplted:(DownloadComplted)downloadComplted{

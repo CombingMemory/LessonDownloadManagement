@@ -9,6 +9,13 @@
 #import <Foundation/Foundation.h>
 #import "DownloadContext.h"
 
+//定义一个下载状态的枚举值
+typedef NS_ENUM(NSInteger, DownloadState){
+    DownloadResume,
+    DownloadSuspend,
+    DownloadFinished
+};
+
 //定义下载完成的block
 typedef void(^FinishBlock)(NSString *savePath, NSString *url);
 //定义下载中的block
@@ -23,7 +30,7 @@ typedef void(^DownloadComplted)(NSString *url);
 
 @property (assign, nonatomic) float progress;//记录当前的下载进度。
 
-@property (readonly) NSURLSessionTaskState state;//返回当前下载类的一个状态
+@property (readonly) DownloadState state;//返回当前下载类的一个状态
 
 //开始
 - (void)resume;
