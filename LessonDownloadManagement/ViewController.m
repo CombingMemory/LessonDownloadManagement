@@ -21,13 +21,16 @@
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.download = [[DownloadManagement shareDownloadManagement] addDownloadingWithURL:@"http://baobab.cdn.wandoujia.com/1445236342564s.mp4"];
+    
+    NSString *url = @"http://baobab.cdn.wandoujia.com/1445236342564s.mp4";
+    
+    self.download = [[DownloadManagement shareDownloadManagement] addDownloadingWithURL:url];
     
     MPMoviePlayerController *controller = [[MPMoviePlayerController alloc] init];
-    controller.view.frame = CGRectMake(0, 300, 320, 180);
+    controller.view.frame = CGRectMake(20, 300, 320, 180);
     [self.view addSubview:controller.view];
     
-    Downloading *downloading = [DownloadContext findDownloadingWithURL:@"http://baobab.cdn.wandoujia.com/1445236342564s.mp4"];
+    Downloading *downloading = [DownloadContext findDownloadingWithURL:url];
     
     self.progress.text = [downloading.progress stringValue];
     
@@ -37,6 +40,10 @@
     } downloading:^(long long bytesWritten, float progress) {
         self.progress.text = [NSString stringWithFormat:@"%f",progress];
     }];
+}
+- (IBAction)Finish:(id)sender {
+    Finish *finish = [DownloadContext findFinishWithURL:@"http://baobab.cdn.wandoujia.com/1445236342564s.mp4"];
+    NSLog(@"%@",[finish getSavePath]);
 }
 - (IBAction)resume:(id)sender {
     [self.download resume];

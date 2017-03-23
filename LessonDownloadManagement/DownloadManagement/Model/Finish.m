@@ -14,4 +14,9 @@
 @dynamic url;
 @dynamic savePath;
 
+- (NSString *)getSavePath{
+    NSString *cache = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) lastObject];
+    return [cache stringByAppendingPathComponent:self.savePath];
+}
+
 @end

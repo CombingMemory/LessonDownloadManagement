@@ -18,4 +18,7 @@
 @property (nonatomic, retain) NSString * tmpPath;
 @property (nonatomic, retain) NSString * url;
 
+//获取下载中文件的路径，还是考虑到版本升级的问题，属性只存储文件名字，完整路径通过这个方法取出
+- (NSString *)getTempPath;
+
 @end

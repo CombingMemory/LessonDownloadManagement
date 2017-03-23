@@ -17,4 +17,8 @@
 @dynamic tmpPath;
 @dynamic url;
 
+- (NSString *)getTempPath{
+    return [NSTemporaryDirectory() stringByAppendingPathComponent:self.tmpPath];
+}
+
 @end

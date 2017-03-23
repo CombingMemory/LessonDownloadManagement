@@ -27,10 +27,13 @@
         self.session = [NSURLSession sessionWithConfiguration:cfg delegate:self delegateQueue:[NSOperationQueue currentQueue]];
         //在数据库中判断是否已经下载过了，如果已经下载过了，执行断点下载
         if ([self isDownloadingWithURL:url]) {
+            //断点下载
             [self.task cancel];
+            self.task = nil;
             NSData *data = [self getDataFromDatabaseWithURL:url];
             self.task = [self.session downloadTaskWithResumeData:data];
         }else{
+            //创建新的下载
             self.task = [self.session downloadTaskWithURL:[NSURL URLWithString:url]];
         }
         //给一个默认值
@@ -51,10 +54,13 @@
     _state = DownloadFinished;
     
     self.downloadComplted(self.url);//让下载管理类不再持有它
+    
     if (self.finish) {
         self.finish(savePath,self.url);
     }
-    [DownloadContext addFinishWithURL:self.url savePath:savePath];
+    
+    //这里数据库存贮的将不再是沙盒路径，因为可能会随着版本的更新沙盒路径发生了改变，这里指存储文件名字，在取出的时候拼接上沙盒路径
+    [DownloadContext addFinishWithURL:self.url savePath:downloadTask.response.suggestedFilename];
     [session invalidateAndCancel];
 }
 
@@ -102,7 +108,7 @@
     Downloading *downloading = [DownloadContext findDownloadingWithURL:url];
     NSString *dataString = downloading.dataString;
     NSFileManager *fm = [NSFileManager defaultManager];
-    NSString *fileSize = [NSString stringWithFormat:@"%llu",[[fm attributesOfItemAtPath:downloading.tmpPath error:nil] fileSize]];
+    NSString *fileSize = [NSString stringWithFormat:@"%llu",[[fm attributesOfItemAtPath:[downloading getTempPath] error:nil] fileSize]];
     dataString = [dataString stringByReplacingOccurrencesOfString:downloading.fileSize withString:fileSize];
     
     return [dataString dataUsingEncoding:NSUTF8StringEncoding];
@@ -150,8 +156,6 @@
     if (![fm fileExistsAtPath:tmpPath]) {
         tmpPath = [dataString componentsSeparatedByString:@"<key>NSURLSessionResumeInfoTempFileName</key>\n\t<string>"].lastObject;
         tmpPath = [tmpPath componentsSeparatedByString:@"</string>"].firstObject;
-        NSString *tmp = NSTemporaryDirectory();
-        tmpPath = [tmp stringByAppendingPathComponent:tmpPath];
     }
     
     //添加一条下载中的信息
